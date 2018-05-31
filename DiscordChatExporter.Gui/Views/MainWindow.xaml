@@ -98,8 +98,9 @@
                     <!--  Progress bar  -->
                     <ProgressBar
                         Background="Transparent"
-                        IsIndeterminate="True"
-                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        IsIndeterminate="{Binding IsProgressIndeterminate}"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Value="{Binding Progress, Mode=OneWay}" />
                 </StackPanel>
             </Border>
 

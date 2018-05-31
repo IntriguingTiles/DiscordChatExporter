@@ -18,6 +18,6 @@ namespace DiscordChatExporter.Core.Services
         Task<IReadOnlyList<Channel>> GetDirectMessageChannelsAsync(string token);
 
         Task<IReadOnlyList<Message>> GetChannelMessagesAsync(string token, string channelId,
-            DateTime? from, DateTime? to);
+            DateTime? from, DateTime? to, IProgress<double> progress);
     }
 }

@@ -398,52 +398,66 @@ namespace DiscordChatExporter.Core.Services
         }
 
         public async Task<IReadOnlyList<Message>> GetChannelMessagesAsync(string token, string channelId,
-            DateTime? from, DateTime? to)
+            DateTime? from, DateTime? to, IProgress<double> progress)
         {
             var result = new List<Message>();
 
-            // We are going backwards from last message to first
-            // collecting everything between them in batches
-            var beforeId = to != null ? DateTimeToSnowflake(to.Value) : null;
-            while (true)
-            {
-                // Form request url
-                var url = $"{ApiRoot}/channels/{channelId}/messages?token={token}&limit=100";
-                if (beforeId.IsNotBlank())
-                    url += $"&before={beforeId}";
+            // Report indeterminate progress
+            progress?.Report(-1);
 
-                // Get response
-                var content = await GetStringAsync(url);
+            // Get the snowflakes for the selected range
+            var firstId = from != null ? DateTimeToSnowflake(from.Value) : "0";
+            var lastId = to != null ? DateTimeToSnowflake(to.Value) : DateTimeToSnowflake(DateTime.MaxValue);
+
+            // Get the last message
+            var url = $"{ApiRoot}/channels/{channelId}/messages?token={token}&limit=1&before={lastId}";
+            var content = await GetStringAsync(url);
+            var lastMessage = JArray.Parse(content).Select(ParseMessage).FirstOrDefault();
+
+            // If the last message doesn't exist or it's outside range - return
+            if (lastMessage == null || lastMessage.TimeStamp < from)
+            {
+                progress?.Report(1);
+                return result;
+            }
+
+            // Get other messages
+            var offsetId = firstId;
+            while (offsetId != null)
+            {
+                url = $"{ApiRoot}/channels/{channelId}/messages?token={token}&limit=100&after={offsetId}";
+                content = await GetStringAsync(url);
 
                 // Parse
-                var messages = JArray.Parse(content).Select(ParseMessage);
+                var messages = JArray.Parse(content).Select(ParseMessage).Reverse();
 
-                // Add messages to list
-                string currentMessageId = null;
+                // Loop through messages
                 foreach (var message in messages)
                 {
-                    // Break when the message is older than from date
-                    if (from != null && message.TimeStamp < from)
+                    // If reached last message - break and stop
+                    if (message.Id == lastMessage.Id)
                     {
-                        currentMessageId = null;
+                        offsetId = null;
                         break;
                     }
 
                     // Add message
                     result.Add(message);
-                    currentMessageId = message.Id;
+
+                    // Move offset
+                    offsetId = message.Id;
+
+                    // Report progress based on timespan of messages parsed
+                    progress?.Report((message.TimeStamp - result.First().TimeStamp).TotalSeconds /
+                                     (lastMessage.TimeStamp - result.First().TimeStamp).TotalSeconds);
                 }
-
-                // If no messages - break
-                if (currentMessageId == null)
-                    break;
-
-                // Otherwise offset the next request
-                beforeId = currentMessageId;
             }
 
-            // Messages appear newest first, we need to reverse
-            result.Reverse();
+            // Add last message
+            result.Add(lastMessage);
+
+            // Report progress
+            progress?.Report(1);
 
             return result;
         }

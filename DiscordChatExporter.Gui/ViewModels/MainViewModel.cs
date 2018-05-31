@@ -25,6 +25,7 @@ namespace DiscordChatExporter.Gui.ViewModels
         private readonly Dictionary<Guild, IReadOnlyList<Channel>> _guildChannelsMap;
 
         private bool _isBusy;
+        private double _progress;
         private string _token;
         private IReadOnlyList<Guild> _availableGuilds;
         private Guild _selectedGuild;
@@ -42,6 +43,18 @@ namespace DiscordChatExporter.Gui.ViewModels
         }
 
         public bool IsDataAvailable => AvailableGuilds.NotNullAndAny();
+
+        public double Progress
+        {
+            get => _progress;
+            private set
+            {
+                Set(ref _progress, value);
+                RaisePropertyChanged(() => IsProgressIndeterminate);
+            }
+        }
+
+        public bool IsProgressIndeterminate => Progress <= 0;
 
         public string Token
         {
@@ -225,7 +238,11 @@ namespace DiscordChatExporter.Gui.ViewModels
             try
             {
                 // Get messages
-                var messages = await _dataService.GetChannelMessagesAsync(token, channel.Id, from, to);
+                var messages = await _dataService.GetChannelMessagesAsync(token, channel.Id, from, to,
+                    new Progress<double>(p => Progress = p));
+
+                // Reset progress
+                Progress = -1;
 
                 // Group them
                 var messageGroups = _messageGroupService.GroupMessages(messages);

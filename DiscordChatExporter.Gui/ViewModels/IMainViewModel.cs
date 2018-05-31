@@ -9,6 +9,9 @@ namespace DiscordChatExporter.Gui.ViewModels
         bool IsBusy { get; }
         bool IsDataAvailable { get; }
 
+        double Progress { get; }
+        bool IsProgressIndeterminate { get; }
+
         string Token { get; set; }
 
         IReadOnlyList<Guild> AvailableGuilds { get; }
